@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Among Us - AmongUSClone</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background: radial-gradient(ellipse at center, #0f1420 0%, #07090e 100%);
+            color: #e8eaed; font-family: 'Inter', sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; margin: 0; overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ========== STARFIELD BACKGROUND ========== */
+        #starfield-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 0; pointer-events: none; opacity: 0.5;
+        }
+
+        /* ========== SHARED ========== */
+        .hidden { display: none !important; }
+
+        /* ========== SETUP LOBBY PANEL ========== */
+        #setup-panel {
+            position: relative; z-index: 1;
+            background: linear-gradient(145deg, rgba(28,31,43,0.92), rgba(21,24,33,0.92));
+            backdrop-filter: blur(20px);
+            padding: 40px 36px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.07);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
+            width: 380px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        #setup-panel:hover {
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        #game-logo {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 28px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #5ac8fa, #007AFF, #5856d6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0 0 4px 0;
+            line-height: 1.2;
+        }
+        #game-subtitle {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: #5a5e6a;
+            text-transform: uppercase;
+            margin: 0 0 28px 0;
+            font-family: 'Orbitron', sans-serif;
+        }
+        #setup-panel .input-group {
+            position: relative;
+            margin-bottom: 14px;
+        }
+        #setup-panel .input-group .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        #setup-panel input {
+            background: rgba(11,13,20,0.7);
+            border: 1px solid #2a2e3a;
+            border-radius: 10px;
+            padding: 13px 16px 13px 40px;
+            width: 100%;
+            color: #e8eaed;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        #setup-panel input:focus {
+            border-color: #5ac8fa;
+            box-shadow: 0 0 0 3px rgba(90,200,250,0.12);
+        }
+        #setup-panel input::placeholder { color: #4a4e5a; }
+
+        .divider {
+            display: flex; align-items: center; gap: 14px; margin: 20px 0 18px;
+        }
+        .divider-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #2a2e3a, transparent); }
+        .divider-text { color: #5a5e6a; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 500; }
+
+        /* ========== BUTTONS ========== */
+        button {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 13px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+        button:hover { transform: translateY(-2px); }
+        button:active { transform: translateY(0); }
+        button::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+            opacity: 0; transition: opacity 0.2s;
+        }
+        button:hover::after { opacity: 1; }
+        #host-btn {
+            background: linear-gradient(135deg, #007AFF, #0055d4);
+            color: #fff; width: 100%;
+            box-shadow: 0 4px 20px rgba(0,122,255,0.35);
+        }
+        #join-btn {
+            background: linear-gradient(135deg, #34C759, #28a745);
+            color: #fff; width: 100%;
+            box-shadow: 0 4px 20px rgba(52,199,89,0.35);
+        }
+        #start-btn {
+            background: linear-gradient(135deg, #34C759, #28a745);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(52,199,89,0.35);
+        }
+
+        /* ========== HUD PANEL ========== */
+        #hud-panel {
+            position: relative; z-index: 1;
+            background: linear-gradient(145deg, rgba(28,31,43,0.92), rgba(21,24,33,0.92));
+            backdrop-filter: blur(16px);
+            padding: 10px 20px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            width: 100%;
+            max-width: 1240px;
+        }
+        #role-badge {
+            font-weight: 700; font-size: 13px; letter-spacing: 1px;
+            text-transform: uppercase; font-family: 'Orbitron', sans-serif;
+            transition: color 0.3s;
+        }
+        #room-code-display { font-size: 11px; color: #6a6e7a; font-family: 'Orbitron', sans-serif; letter-spacing: 2px; }
+        #progress-container { background: #161a24; border-radius: 10px; height: 10px; width: 100%; overflow: hidden; border: 1px solid #2a2e3a; position: relative; }
+        #progress-bar { background: linear-gradient(90deg, #34C759, #30d158, #34C759); background-size: 200% 100%; width: 0%; height: 100%; transition: width 0.4s ease; border-radius: 10px; }
+        #progress-indicator { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent); animation: shimmer 2s infinite; pointer-events: none; border-radius: 10px; }
+        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+        #hud-controls { display: flex; gap: 8px; }
+        .hud-kbd { background: #1a1d28; padding: 3px 7px; border-radius: 4px; font-size: 10px; font-family: 'Inter', sans-serif; color: #8a8fa0; border: 1px solid #2a2e3a; }
+        .hud-kbd-label { font-size: 10px; color: #5a5e6a; }
+
+        /* ========== KILL COOLDOWN ========== */
+        #kill-cooldown-wrap { display: none; align-items: center; gap: 6px; }
+        #kill-cooldown-wrap.visible { display: flex; }
+        #kill-cooldown-ring {
+            width: 24px; height: 24px; border-radius: 50%;
+            border: 2px solid #ff3b30; position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #kill-cooldown-ring svg { transform: rotate(-90deg); position: absolute; }
+        #kill-cooldown-ring svg circle {
+            fill: none; stroke: #ff3b30; stroke-width: 2;
+            stroke-dasharray: 56.5; stroke-dashoffset: 0;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+        #kill-cooldown-text { font-size: 9px; color: #ff3b30; font-weight: 700; }
+
+        /* ========== GAME LAYOUT ========== */
+        #game-layout { display: flex; gap: 16px; align-items: flex-start; max-width: 1240px; position: relative; z-index: 1; }
+        #canvas-wrapper {
+            background: linear-gradient(145deg, rgba(28,31,43,0.92), rgba(21,24,33,0.92));
+            backdrop-filter: blur(16px);
+            padding: 14px;
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            transition: box-shadow 0.3s;
+        }
+        #canvas-wrapper.glow { box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(90,200,250,0.06); }
+        canvas {
+            background: #0b0d14;
+            border-radius: 10px;
+            border: 1px solid #1e222e;
+            display: block;
+            box-shadow: inset 0 0 60px rgba(0,0,0,0.6);
+        }
+
+        /* ========== SIDEBAR ========== */
+        #sidebar {
+            background: linear-gradient(145deg, rgba(28,31,43,0.92), rgba(21,24,33,0.92));
+            backdrop-filter: blur(16px);
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            width: 220px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        #sidebar .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 9px; letter-spacing: 2px;
+            color: #6a6e7a;
+            text-transform: uppercase;
+            margin: 0 0 8px 0;
+        }
+        #task-list { padding-left: 14px; font-size: 12px; color: #c8cad4; margin: 0; list-style: none; }
+        #task-list li { margin-bottom: 5px; line-height: 1.4; padding-left: 4px; border-left: 2px solid transparent; transition: border-color 0.2s; }
+        #task-list li.task-done { border-left-color: #34C759; }
+        #task-list li.task-pending { border-left-color: #ffcc00; }
+        #task-list li.task-fake { border-left-color: #ff3b30; }
+
+        #player-status-list { display: flex; flex-direction: column; gap: 4px; }
+        .player-status-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 8px; border-radius: 6px;
+            background: rgba(255,255,255,0.03);
+            font-size: 11px;
+        }
+        .player-status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .player-status-name { flex: 1; }
+        .player-status-dead { opacity: 0.35; text-decoration: line-through; }
+        .player-status-alive { opacity: 1; }
+        .player-status-you { color: #5ac8fa; font-weight: 600; }
+
+        /* ========== SABOTAGE ALERT ========== */
+        #sabotage-alert {
+            background: linear-gradient(90deg, rgba(255,59,48,0.15), rgba(214,48,49,0.15));
+            border: 1px solid rgba(255,59,48,0.3);
+            text-align: center; font-weight: 700; font-size: 10px; letter-spacing: 2px;
+            padding: 8px; border-radius: 8px;
+            font-family: 'Orbitron', sans-serif;
+            color: #ff3b30;
+            animation: pulseAlert 1s ease-in-out infinite;
+        }
+        @keyframes pulseAlert {
+            0%, 100% { box-shadow: 0 0 8px rgba(255,59,48,0.15); }
+            50% { box-shadow: 0 0 20px rgba(255,59,48,0.3); }
+        }
+
+        /* ========== TASK MODAL ========== */
+        #task-modal {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95);
+            background: linear-gradient(145deg, rgba(30,34,48,0.96), rgba(22,25,38,0.96));
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(90,200,250,0.2);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+            padding: 36px; border-radius: 18px; text-align: center; z-index: 100;
+            min-width: 340px;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+        #task-modal:not(.hidden) { transform: translate(-50%, -50%) scale(1); }
+        #task-modal h3 { font-family: 'Orbitron', sans-serif; font-size: 14px; letter-spacing: 2px; color: #5ac8fa; margin: 0 0 8px 0; }
+        #task-modal .task-modal-icon { font-size: 42px; margin-bottom: 12px; display: block; }
+        #task-modal p { color: #8a8fa0; font-size: 13px; margin: 0 0 20px 0; }
+        #task-modal .modal-progress {
+            height: 4px; background: #2a2e3a; border-radius: 4px; margin: 0 0 20px; overflow: hidden;
+        }
+        #task-modal .modal-progress-bar {
+            width: 0%; height: 100%; background: linear-gradient(90deg, #ffcc00, #f0a500);
+            border-radius: 4px; transition: width 0.1s linear;
+        }
+        #task-action-btn { background: linear-gradient(135deg, #ffcc00, #f0a500); color: #000; font-weight: 700; min-width: 140px; box-shadow: 0 4px 15px rgba(255,204,0,0.3); }
+        #task-action-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        #close-modal-btn { background: #2a2e3a; color: #8a8fa0; }
+        #close-modal-btn:hover { background: #3a3e4a; }
+
+        /* ========== MEETING OVERLAY ========== */
+        #meeting-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(5,7,12,0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 200; backdrop-filter: blur(12px);
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+        #meeting-box {
+            background: linear-gradient(145deg, rgba(28,31,43,0.96), rgba(21,24,33,0.96));
+            backdrop-filter: blur(20px);
+            width: 780px; max-height: 90vh;
+            padding: 28px; border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        #meeting-banner { font-family: 'Orbitron', sans-serif; margin: 0 0 2px 0; text-align: center; }
+        #meeting-status-log { text-align: center; color: #6a6e7a; font-size: 12px; margin: 0 0 14px 0; }
+        #meeting-timer {
+            text-align: center; font-family: 'Orbitron', sans-serif; font-size: 24px;
+            color: #ffcc00; margin-bottom: 8px; letter-spacing: 2px;
+        }
+        #voting-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 14px 0; }
+        .player-row {
+            background: rgba(35,39,52,0.7); padding: 10px 14px; border-radius: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; border: 1px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .player-row:hover { border-color: #5ac8fa; background: rgba(42,46,58,0.8); }
+        .player-row .player-color-dot { width: 16px; height: 16px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.1); }
+        .player-row .player-info { display: flex; align-items: center; gap: 8px; }
+        .dead-player { opacity: 0.3; cursor: not-allowed; text-decoration: line-through; }
+        .player-row.voted { border-color: #ffcc00; background: rgba(255,204,0,0.08); }
+        .vote-badge { color: #ffcc00; font-size: 16px; opacity: 0; transition: opacity 0.2s; }
+        .vote-badge.show { opacity: 1; }
+        .eject-flash {
+            animation: ejectFlash 0.6s ease;
+        }
+        @keyframes ejectFlash {
+            0% { background: rgba(255,59,48,0.3); transform: scale(1.02); }
+            100% { background: transparent; transform: scale(1); }
+        }
+        #skip-vote-btn { width: 100%; background: #2a2e3a; color: #8a8fa0; margin-bottom: 4px; }
+        #skip-vote-btn:hover { background: #3a3e4a; color: #c8cad4; }
+        #skip-vote-btn.voted { background: rgba(255,204,0,0.12); color: #ffcc00; border: 1px solid rgba(255,204,0,0.2); }
+        #chat-window {
+            background: rgba(11,13,20,0.7); height: 110px; border-radius: 10px;
+            padding: 10px 12px; overflow-y: auto; text-align: left;
+            font-size: 12px; margin-top: 12px; border: 1px solid #2a2e3a;
+            line-height: 1.5;
+        }
+        #chat-window::-webkit-scrollbar { width: 3px; }
+        #chat-window::-webkit-scrollbar-track { background: transparent; }
+        #chat-window::-webkit-scrollbar-thumb { background: #3a3e4a; border-radius: 2px; }
+        .chat-input-wrap { display: flex; gap: 8px; margin-top: 8px; }
+        #chat-input { background: rgba(11,13,20,0.7); border: 1px solid #2a2e3a; border-radius: 10px; padding: 10px 14px; color: #e8eaed; font-family: 'Inter', sans-serif; font-size: 13px; outline: none; flex: 1; }
+        #chat-input:focus { border-color: #5ac8fa; }
+        #send-chat-btn { background: linear-gradient(135deg, #5ac8fa, #007AFF); color: #fff; padding: 10px 18px; }
+
+        /* ========== TOAST ========== */
+        #toast-container {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 300; display: flex; flex-direction: column; gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            background: rgba(28,31,43,0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #e8eaed;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+            text-align: center;
+            pointer-events: auto;
+        }
+        .toast.toast-error { border-color: rgba(255,59,48,0.3); }
+        .toast.toast-success { border-color: rgba(52,199,89,0.3); }
+        @keyframes toastIn { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        @keyframes toastOut { 0% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3a3e4a; border-radius: 2px; }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 1260px) {
+            #game-layout { flex-direction: column; align-items: center; }
+            #sidebar { width: 100%; max-width: 1000px; flex-direction: row; flex-wrap: wrap; }
+            #player-status-list { flex-direction: row; flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== STARFIELD ===== -->
+    <canvas id="starfield-canvas"></canvas>
+
+    <!-- ===== LOBBY ===== -->
+    <div id="setup-panel">
+        <div id="game-logo">AmongUS</div>
+        <div id="game-subtitle">Network Terminal v4.2</div>
+        <div class="input-group">
+            <span class="input-icon">👤</span>
+            <input type="text" id="username-in" placeholder="Enter Callsign...">
+        </div>
+        <button id="host-btn">🚀 Host Match</button>
+        <div class="divider">
+            <div class="divider-line"></div>
+            <span class="divider-text">or</span>
+            <div class="divider-line"></div>
+        </div>
+        <div class="input-group">
+            <span class="input-icon">🔑</span>
+            <input type="text" id="code-in" placeholder="Room Code" style="text-transform:uppercase;">
+        </div>
+        <button id="join-btn">🔗 Join Room</button>
+    </div>
+
+    <!-- ===== GAME HUD ===== -->
+    <div id="canvas-wrapper" class="hidden">
+        <div id="hud-panel">
+            <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:150px;">
+                <div id="role-badge">◈ Identity: Pending</div>
+                <div id="room-code-display">◆ Room: ----</div>
+            </div>
+            <div style="flex:1; max-width:300px;">
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:#6a6e7a; margin-bottom:3px;">
+                    <span>Task Progress</span>
+                    <span id="progress-text">0%</span>
+                </div>
+                <div id="progress-container">
+                    <div id="progress-bar"></div>
+                    <div id="progress-indicator"></div>
+                </div>
+            </div>
+            <div id="kill-cooldown-wrap">
+                <div id="kill-cooldown-ring">
+                    <svg width="24" height="24"><circle cx="12" cy="12" r="9"/></svg>
+                    <span id="kill-cooldown-text" style="font-size:8px;">◆</span>
+                </div>
+                <span style="font-size:9px; color:#ff3b30; font-weight:600;">KILL</span>
+            </div>
+            <button id="start-btn" class="hidden">⚡ Start Match</button>
+            <div id="hud-controls">
+                <span><span class="hud-kbd">Q</span> <span class="hud-kbd-label">Kill</span></span>
+                <span><span class="hud-kbd">E</span> <span class="hud-kbd-label">Use</span></span>
+                <span><span class="hud-kbd">1</span> <span class="hud-kbd-label">Sab</span></span>
+            </div>
+        </div>
+
+        <div id="game-layout">
+            <canvas id="gameCanvas" width="1000" height="700"></canvas>
+            <div id="sidebar">
+                <div id="sabotage-alert" class="hidden">⚠ LIGHTS SABOTAGED</div>
+                <div>
+                    <div class="section-title">📋 Tasks</div>
+                    <ul id="task-list"></ul>
+                </div>
+                <div>
+                    <div class="section-title">👥 Crew</div>
+                    <div id="player-status-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MEETING OVERLAY ===== -->
+    <div id="meeting-overlay" class="hidden">
+        <div id="meeting-box">
+            <div id="meeting-timer">30</div>
+            <h2 id="meeting-banner" style="color:#ffcc00; margin:0 0 2px 0; text-align:center; font-family:'Orbitron',sans-serif; font-size:16px; letter-spacing:2px;">⚖ Emergency Meeting</h2>
+            <div id="meeting-status-log" style="text-align:center; color:#6a6e7a; font-size:12px; margin:0 0 14px 0;">Cast your vote below</div>
+            
+            <div id="voting-grid"></div>
+            
+            <button id="skip-vote-btn">⏭ Skip Vote</button>
+            
+            <div id="chat-window"></div>
+            <div class="chat-input-wrap">
+                <input type="text" id="chat-input" placeholder="Type a message...">
+                <button id="send-chat-btn">📨 Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TASK MODAL ===== -->
+    <div id="task-modal" class="hidden">
+        <span class="task-modal-icon">⚙️</span>
+        <h3 id="modal-task-title">Processing Calibration</h3>
+        <div class="modal-progress"><div class="modal-progress-bar" id="modal-progress-bar"></div></div>
+        <p id="modal-status">Click to initiate system sequence...</p>
+        <button id="task-action-btn">⚡ Execute</button>
+        <button id="close-modal-btn" style="margin-left:8px;">✕ Abort</button>
+    </div>
+
+    <!-- ===== TOAST CONTAINER ===== -->
+    <div id="toast-container"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
