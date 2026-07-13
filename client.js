@@ -938,3 +938,167 @@ function renderTick() {
     
     requestAnimationFrame(renderTick);
 }
+
+// ===================== TOUCH CONTROLS =====================
+(function initTouchControls() {
+    const touchControls = document.getElementById('touch-controls');
+    const joystickArea = document.getElementById('joystick-area');
+    const joystickBase = document.getElementById('joystick-base');
+    const joystickKnob = document.getElementById('joystick-knob');
+    const useBtn = document.getElementById('touch-use-btn');
+    const killBtn = document.getElementById('touch-kill-btn');
+    const sabotageBtn = document.getElementById('touch-sabotage-btn');
+
+    if (!joystickArea || !joystickKnob) return;
+
+    // Only show on touch-capable devices
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice && window.innerWidth > 1024) {
+        if (touchControls) touchControls.style.display = 'none';
+    }
+
+    let joystickActive = false;
+    let joystickTouchId = null;
+    const JOYSTICK_MAX_DIST = 40;
+
+    function getJoystickCenter() {
+        const rect = joystickBase.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+
+    function handleJoystickStart(touch) {
+        joystickActive = true;
+        joystickTouchId = touch.identifier;
+    }
+
+    function handleJoystickMove(touch) {
+        if (!joystickActive) return;
+        const center = getJoystickCenter();
+        let dx = touch.clientX - center.x;
+        let dy = touch.clientY - center.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Clamp to max distance
+        if (dist > JOYSTICK_MAX_DIST) {
+            dx = (dx / dist) * JOYSTICK_MAX_DIST;
+            dy = (dy / dist) * JOYSTICK_MAX_DIST;
+        }
+
+        // Move knob
+        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+        // Set input state based on joystick position
+        const threshold = 10; // deadzone
+        inputState.up = dy < -threshold;
+        inputState.down = dy > threshold;
+        inputState.left = dx < -threshold;
+        inputState.right = dx > threshold;
+
+        if (currentGameState === 'INGAME') {
+            socket.emit('player_input', inputState);
+        }
+    }
+
+    function handleJoystickEnd() {
+        joystickActive = false;
+        joystickTouchId = null;
+        joystickKnob.style.transform = 'translate(-50%, -50%)';
+        inputState.up = false;
+        inputState.down = false;
+        inputState.left = false;
+        inputState.right = false;
+        if (currentGameState === 'INGAME') {
+            socket.emit('player_input', inputState);
+        }
+    }
+
+    // Joystick touch events
+    joystickArea.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        if (touch) handleJoystickStart(touch);
+    }, { passive: false });
+
+    joystickArea.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joystickTouchId || !joystickActive) {
+                handleJoystickMove(touch);
+            }
+        }
+    }, { passive: false });
+
+    joystickArea.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joystickTouchId) {
+                handleJoystickEnd();
+            }
+        }
+    }, { passive: false });
+
+    joystickArea.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        handleJoystickEnd();
+    }, { passive: false });
+
+    // Action buttons
+    function setupTouchButton(btn, action) {
+        if (!btn) return;
+        
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            btn.classList.add('pressed');
+            
+            switch (action) {
+                case 'kill':
+                    if (myRole === 'IMPOSTOR' && currentGameState === 'INGAME') {
+                        socket.emit('execute_kill');
+                    }
+                    break;
+                case 'use':
+                    if (currentGameState === 'INGAME') {
+                        evaluateInteractions();
+                    }
+                    break;
+                case 'sabotage':
+                    if (myRole === 'IMPOSTOR' && currentGameState === 'INGAME') {
+                        socket.emit('trigger_sabotage', 'LIGHTS');
+                    }
+                    break;
+            }
+        }, { passive: false });
+
+        btn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            btn.classList.remove('pressed');
+        }, { passive: false });
+
+        btn.addEventListener('touchcancel', (e) => {
+            btn.classList.remove('pressed');
+        }, { passive: false });
+    }
+
+    setupTouchButton(useBtn, 'use');
+    setupTouchButton(killBtn, 'kill');
+    setupTouchButton(sabotageBtn, 'sabotage');
+
+    // Also support mouse for testing on desktop
+    let mouseJoystick = false;
+    joystickArea.addEventListener('mousedown', (e) => {
+        mouseJoystick = true;
+        handleJoystickStart({ clientX: e.clientX, clientY: e.clientY, identifier: 0 });
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!mouseJoystick) return;
+        handleJoystickMove({ clientX: e.clientX, clientY: e.clientY, identifier: 0 });
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!mouseJoystick) return;
+        mouseJoystick = false;
+        handleJoystickEnd();
+    });
+})();
