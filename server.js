@@ -345,7 +345,8 @@ function registerPlayer(socket, roomCode, username) {
     };
     socket.roomCode = roomCode;
     socket.join(roomCode);
-    socket.emit('connection_acknowledged', { myId: socket.id, roomCode, mapVents: MAP_VENTS, taskTemplates: TASK_TEMPLATES });
+    const isHost = Object.keys(activeRoom.players).length === 1;
+    socket.emit('connection_acknowledged', { myId: socket.id, roomCode, isHost, mapVents: MAP_VENTS, taskTemplates: TASK_TEMPLATES });
 }
 
 function executeMeetingCall(room, reasonText) {
